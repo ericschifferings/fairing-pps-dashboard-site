@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Valkental Fairing-Dashboard</title>
+<style>
+  :root {
+    --surface-1: #fcfcfb;
+    --page: #f9f9f7;
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --muted: #898781;
+    --grid: #e1e0d9;
+    --baseline: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    --blue: #2a78d6;
+    --blue-soft: #cde2fb;
+    --critical: #d03b3b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --surface-1: #1a1a19;
+      --page: #0d0d0d;
+      --ink: #ffffff;
+      --ink-2: #c3c2b7;
+      --muted: #898781;
+      --grid: #2c2c2a;
+      --baseline: #383835;
+      --border: rgba(255,255,255,0.10);
+      --blue: #3987e5;
+      --blue-soft: #16345c;
+      --critical: #d03b3b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--page); color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 14px; line-height: 1.45;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 20px 20px 60px; }
+  header { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 16px; }
+  header h1 { font-size: 20px; margin: 0; }
+  header .stand { color: var(--muted); font-size: 12px; }
+  button.reload {
+    margin-left: auto; border: 1px solid var(--border); background: var(--surface-1);
+    color: var(--ink); border-radius: 8px; padding: 6px 14px; cursor: pointer; font-size: 13px;
+  }
+  button.reload:hover { border-color: var(--blue); }
+
+  .filters {
+    display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px 14px; margin-bottom: 16px;
+  }
+  .filters label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+  .filters select, .filters input[type=date] {
+    background: var(--page); color: var(--ink); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 8px; font-size: 13px; min-width: 130px;
+  }
+  .resetbtn { background: none; border: none; color: var(--blue); font-size: 12px; cursor: pointer; padding: 6px 2px; }
+  .prodrow { flex-basis: 100%; border-top: 1px solid var(--grid); padding-top: 10px; margin-top: 2px; }
+  .prodrow .head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 7px; }
+  .prodrow .head label { margin: 0; }
+  .grpbtns { display: flex; gap: 12px; }
+  .prodhint { color: var(--muted); font-size: 11px; margin-left: auto; }
+  .grpbtns a { color: var(--blue); font-size: 12px; cursor: pointer; text-decoration: none; }
+  .grpbtns a:hover { text-decoration: underline; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    border: 1px solid var(--border); background: var(--page); color: var(--ink-2);
+    border-radius: 999px; padding: 4px 11px; font-size: 12.5px; cursor: pointer; user-select: none;
+  }
+  .chip:hover { border-color: var(--blue); }
+  .chip.on { background: var(--blue-soft); border-color: var(--blue); color: var(--ink); }
+  .chip .cnt { color: var(--muted); font-size: 11px; margin-left: 5px; font-variant-numeric: tabular-nums; }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .kpi { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .kpi .v { font-size: 26px; font-weight: 650; }
+  .kpi .l { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .kpi .s { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+
+  .main { display: grid; grid-template-columns: 340px 1fr; gap: 12px; align-items: start; }
+  @media (max-width: 980px) { .main { grid-template-columns: 1fr; } }
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .card h2 { font-size: 14px; margin: 0 0 10px; font-weight: 600; }
+  .card h2 .sub { color: var(--muted); font-weight: 400; font-size: 12px; }
+  .subnote { font-size: 12px; color: var(--muted); margin: -6px 0 10px; }
+  .rightcol { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+  .qlist { display: flex; flex-direction: column; gap: 2px; max-height: 620px; overflow: auto; }
+  .qitem {
+    display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 8px 10px;
+    border-radius: 8px; cursor: pointer; align-items: start; border: 1px solid transparent;
+  }
+  .qitem:hover { background: var(--page); }
+  .qitem.active { background: var(--blue-soft); border-color: var(--blue); }
+  .qitem .qt { font-size: 13px; color: var(--ink); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .qitem .typ { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-top: 2px; }
+  .qitem .qn { font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
+
+  .hbar-row {
+    display: grid; grid-template-columns: minmax(130px, 240px) 1fr 95px; gap: 8px; align-items: center;
+    padding: 4px 4px; cursor: pointer; border-radius: 6px;
+  }
+  .hbar-row:hover { background: var(--page); }
+  .hbar-row.active .lbl { color: var(--blue); font-weight: 600; }
+  .hbar-row .lbl { font-size: 13px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hbar-track { height: 16px; position: relative; }
+  .hbar-fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--blue); border-radius: 0 4px 4px 0; min-width: 2px; }
+  .hbar-row .num { font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; text-align: right; }
+  .hbar-row .num b { color: var(--ink); }
+  @media (max-width: 640px) {
+    .hbar-row { grid-template-columns: 1fr 95px; }
+    .hbar-row .lbl { grid-column: 1; grid-row: 1; }
+    .hbar-row .num { grid-column: 2; grid-row: 1; }
+    .hbar-track { grid-column: 1 / -1; grid-row: 2; }
+  }
+
+  .qpanel { margin: 4px 0 12px; padding: 10px 12px; background: var(--page); border: 1px solid var(--grid); border-radius: 10px; }
+  .qpanel .phead { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+  .quote {
+    background: var(--surface-1); border: 1px solid var(--border); border-left: 3px solid var(--blue);
+    border-radius: 8px; padding: 9px 12px; margin: 8px 0; font-size: 13px;
+  }
+  .quote .meta { color: var(--muted); font-size: 11px; margin-top: 5px; }
+  .morebtn {
+    background: var(--surface-1); border: 1px solid var(--border); color: var(--blue);
+    border-radius: 8px; padding: 6px 14px; cursor: pointer; font-size: 12.5px; margin-top: 4px;
+  }
+
+  #trendcard svg { display: block; width: 100%; height: 220px; }
+  .tooltip {
+    position: fixed; pointer-events: none; z-index: 50; display: none;
+    background: var(--ink); color: var(--page); font-size: 12px; padding: 6px 9px; border-radius: 7px;
+  }
+  .empty { color: var(--muted); padding: 12px 4px; }
+
+  #status { padding: 40px; text-align: center; color: var(--muted); }
+  #status .err { color: var(--critical); }
+  .spin { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--grid); border-top-color: var(--blue); border-radius: 50%; animation: sp 0.8s linear infinite; vertical-align: -4px; margin-right: 8px; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Valkental Fairing-Dashboard</h1>
+    <span class="stand" id="stand"></span>
+    <button class="reload" onclick="location.reload()">&#8635; Aktualisieren</button>
+  </header>
+
+  <div id="status"><span class="spin"></span>Lade Umfragedaten &hellip;</div>
+
+  <div id="app" style="display:none">
+    <div class="kpis">
+      <div class="kpi"><div class="v" id="kTotal">&ndash;</div><div class="l">Antworten im Filter</div></div>
+      <div class="kpi"><div class="v" id="kRange" style="font-size:17px">&ndash;</div><div class="l">Zeitraum (Bestelldatum)</div></div>
+      <div class="kpi"><div class="v" id="kQ">&ndash;</div><div class="l">Fragen</div><div class="s" id="kQS"></div></div>
+      <div class="kpi"><div class="v" id="kStand" style="font-size:17px">&ndash;</div><div class="l">Stand des Datenexports</div></div>
+    </div>
+
+    <div class="filters">
+      <div class="grp">
+        <label>Zeitraum</label>
+        <select id="preset">
+          <option value="all" selected>Alles</option>
+          <option value="30">Letzte 30 Tage</option>
+          <option value="90">Letzte 90 Tage</option>
+          <option value="custom">Eigener Zeitraum</option>
+        </select>
+      </div>
+      <div class="grp"><label>Von</label><input type="date" id="dFrom"></div>
+      <div class="grp"><label>Bis</label><input type="date" id="dTo"></div>
+      <button class="resetbtn" id="resetbtn">Filter zurücksetzen</button>
+      <div class="prodrow">
+        <div class="head">
+          <label>Produkt</label>
+          <div class="grpbtns">
+            <a data-g="alle">Alle</a>
+            <a data-g="jacke">Alle Jacken</a>
+            <a data-g="tasche">Alle Taschen</a>
+          </div>
+          <span class="prodhint">Bestellungen mit mehreren Produkten zählen bei jedem Produkt</span>
+        </div>
+        <div class="chips" id="chips"></div>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="card">
+        <h2>Fragen <span class="sub">(sortiert nach Antwortvolumen im Filter)</span></h2>
+        <div class="qlist" id="qlist"></div>
+      </div>
+      <div class="rightcol">
+        <div class="card">
+          <h2 id="qtitle">Frage</h2>
+          <div class="subnote" id="qnote"></div>
+          <div id="clusters"></div>
+        </div>
+        <div class="card" id="trendcard">
+          <h2>Antworten pro Monat <span class="sub" id="trendsub"></span></h2>
+          <svg id="trend"></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="tooltip" id="tt"></div>
+
+<script src="./dashboard-data.js"></script>
+<script id="fairing-core">
+/* FairingCore: reine Rechenfunktionen, ohne DOM. Testbar ausserhalb des Browsers. */
+(function (g) {
+  "use strict";
+
+  var JACKE_RE = /jacket|jacke|puffer/i;
+  var TASCHE_RE = /tasche|bag|pannier|rucksack/i;
+
+  function productGroup(name) {
+    if (JACKE_RE.test(name)) return "jacke";
+    if (TASCHE_RE.test(name)) return "tasche";
+    return "sonstig";
+  }
+
+  /* filter = { products: Set<pIdx> | null, from: "YYYY-MM-DD" | null, to: "YYYY-MM-DD" | null }
+     Contract v3: r[1] (pIdxs) ist ein Array von Produkt-Indizes (Bestellung kann mehrere
+     Produkte enthalten). Match, wenn IRGENDEIN Produkt der Antwort ausgewaehlt ist.
+     Datumsvergleich als String-Vergleich (ISO sortiert lexikografisch korrekt). */
+  function passes(r, f) {
+    if (f.products) {
+      var ps = r[1];
+      var hit = false;
+      if (ps) {
+        for (var pi = 0; pi < ps.length; pi++) {
+          if (f.products.has(ps[pi])) { hit = true; break; }
+        }
+      }
+      if (!hit) return false;
+    }
+    var d = r[2];
+    if (f.from && (!d || d < f.from)) return false;
+    if (f.to && (!d || d > f.to)) return false;
+    return true;
+  }
+
+  /* Ein einziger Scan ueber alle Responses. Liefert alles, was das UI pro Render braucht. */
+  function computeStats(data, f, activeQ) {
+    var nQ = data.questions.length;
+    var perQuestion = new Array(nQ).fill(0);
+    var clusterCounts = null;
+    if (activeQ != null && activeQ >= 0 && activeQ < nQ) {
+      var cl = data.clusters[String(data.questions[activeQ].id)] || [];
+      clusterCounts = new Array(cl.length).fill(0);
+    }
+    var months = Object.create(null);
+    var total = 0, dmin = null, dmax = null, unclustered = 0;
+    var rs = data.responses;
+    for (var i = 0; i < rs.length; i++) {
+      var r = rs[i];
+      var q = r[0];
+      if (q == null || q < 0 || q >= nQ) continue;
+      if (!passes(r, f)) continue;
+      total++;
+      perQuestion[q]++;
+      var d = r[2];
+      if (d) {
+        if (dmin === null || d < dmin) dmin = d;
+        if (dmax === null || d > dmax) dmax = d;
+      }
+      if (q === activeQ) {
+        /* Contract v2: r[3] (cIdxs) ist ein Array von Cluster-Indizes oder null.
+           Eine Antwort zaehlt in JEDEM ihrer Cluster (Mehrfachnennungen). */
+        var cs = r[3];
+        if (cs && cs.length) {
+          if (clusterCounts) {
+            for (var ci = 0; ci < cs.length; ci++) {
+              var c = cs[ci];
+              if (c != null && c >= 0 && c < clusterCounts.length) clusterCounts[c]++;
+            }
+          }
+        } else {
+          unclustered++;
+        }
+        if (d) {
+          var m = d.slice(0, 7);
+          months[m] = (months[m] || 0) + 1;
+        }
+      }
+    }
+    return { total: total, perQuestion: perQuestion, clusterCounts: clusterCounts,
+             unclustered: unclustered, months: months, dmin: dmin, dmax: dmax };
+  }
+
+  /* Produkt-Zaehler nur mit Datumsfilter (fuer die Chip-Anzeige).
+     v3: Eine Antwort zaehlt bei JEDEM ihrer Produkte; die Summe der Chip-Counts
+     kann deshalb ueber der Gesamtzahl der Antworten liegen. */
+  function productCounts(data, f) {
+    var counts = new Array(data.products.length).fill(0);
+    var rs = data.responses;
+    for (var i = 0; i < rs.length; i++) {
+      var r = rs[i];
+      var d = r[2];
+      if (f.from && (!d || d < f.from)) continue;
+      if (f.to && (!d || d > f.to)) continue;
+      var ps = r[1];
+      if (!ps) continue;
+      for (var j = 0; j < ps.length; j++) {
+        var p = ps[j];
+        if (p >= 0 && p < counts.length) counts[p]++;
+      }
+    }
+    return counts;
+  }
+
+  /* Top-K Zitate per Teilsortierung (Insertion in kleines Array, kein Full-Sort ueber 71k Zeilen).
+     Contract v2: Ein Zitat gehoert zu JEDEM Cluster in seinem cIdxs-Array.
+     cIdx === null matcht Responses ohne Cluster-Zuordnung (cIdxs null oder leer). */
+  function topQuotes(data, f, qIdx, cIdx, k) {
+    var top = [];
+    var totalQuotable = 0;
+    var rs = data.responses;
+    for (var i = 0; i < rs.length; i++) {
+      var r = rs[i];
+      if (r[0] !== qIdx) continue;
+      var cs = r[3];
+      if (cIdx === null) { if (cs && cs.length) continue; }
+      else if (!cs || cs.indexOf(cIdx) === -1) continue;
+      if (!passes(r, f)) continue;
+      var v = r[4];
+      if (v == null || v === "") continue;
+      totalQuotable++;
+      var s = r[5] == null ? 0 : r[5];
+      if (top.length < k) {
+        var j = top.length;
+        while (j > 0 && (top[j - 1][5] == null ? 0 : top[j - 1][5]) < s) j--;
+        top.splice(j, 0, r);
+      } else if (s > (top[k - 1][5] == null ? 0 : top[k - 1][5])) {
+        top.pop();
+        var j2 = top.length;
+        while (j2 > 0 && (top[j2 - 1][5] == null ? 0 : top[j2 - 1][5]) < s) j2--;
+        top.splice(j2, 0, r);
+      }
+    }
+    return { top: top, totalQuotable: totalQuotable };
+  }
+
+  /* Lueckenlose Monatsliste "YYYY-MM" von a bis b (inklusive). */
+  function monthRange(a, b) {
+    var out = [];
+    var y = +a.slice(0, 4), m = +a.slice(5, 7);
+    var y2 = +b.slice(0, 4), m2 = +b.slice(5, 7);
+    while (y < y2 || (y === y2 && m <= m2)) {
+      out.push(y + "-" + (m < 10 ? "0" + m : "" + m));
+      m++;
+      if (m > 12) { m = 1; y++; }
+    }
+    return out;
+  }
+
+  g.FairingCore = {
+    productGroup: productGroup,
+    passes: passes,
+    computeStats: computeStats,
+    productCounts: productCounts,
+    topQuotes: topQuotes,
+    monthRange: monthRange
+  };
+})(typeof window !== "undefined" ? window : globalThis);
+</script>
+<script>
+(function () {
+  "use strict";
+  var el = function (id) { return document.getElementById(id); };
+  var status = el("status");
+
+  if (!window.FAIRING_DATA || !Array.isArray(window.FAIRING_DATA.responses) || !Array.isArray(window.FAIRING_DATA.questions)) {
+    status.innerHTML = '<span class="err">dashboard-data.js konnte nicht geladen werden.</span><br>' +
+      'Die Datei <b>dashboard-data.js</b> muss im selben Ordner liegen wie dieses Dashboard.<br>' +
+      'Danach diese Seite neu laden.';
+    return;
+  }
+
+  var DATA = window.FAIRING_DATA;
+  var Core = window.FairingCore;
+
+  var state = {
+    products: null,      // null = alle, sonst Set von Produkt-Indizes
+    activeQ: 0,          // Index in DATA.questions (kommt nach total desc sortiert)
+    openCluster: undefined, // undefined = zu, sonst Cluster-Index oder null (= ohne Zuordnung)
+    quoteLimit: 5
+  };
+  var lastStats = null;
+
+  /* ---------- Format-Helfer ---------- */
+  function escapeHtml(s) {
+    return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function fmtNum(n) { return (n || 0).toLocaleString("de-DE"); }
+  function fmtDate(d) { return d ? d.slice(8, 10) + "." + d.slice(5, 7) + "." + d.slice(0, 4) : "–"; }
+  var MON_S = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+  var MON_L = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+  function fmtMonth(m) { return MON_S[+m.slice(5, 7) - 1] + " " + m.slice(2, 4); }
+  function fmtMonthLong(m) { return MON_L[+m.slice(5, 7) - 1] + " " + m.slice(0, 4); }
+  function fmtStand(iso) {
+    try {
+      var d = new Date(iso);
+      if (isNaN(d)) return iso || "–";
+      return d.toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" });
+    } catch (e) { return iso || "–"; }
+  }
+  function pctLabel(n, basis) {
+    if (!basis || !n) return n === 0 ? "0%" : "–";
+    var p = n / basis * 100;
+    return p < 1 ? "<1%" : Math.round(p) + "%";
+  }
+  /* Klickbare Nicht-Button-Elemente: role, tabindex, Enter/Space. */
+  function pressable(node, fn) {
+    node.setAttribute("role", "button");
+    node.setAttribute("tabindex", "0");
+    node.addEventListener("click", fn);
+    node.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fn(); }
+    });
+  }
+
+  /* ---------- Filter ---------- */
+  function currentFilter() {
+    return {
+      products: state.products,
+      from: el("dFrom").value || null,
+      to: el("dTo").value || null
+    };
+  }
+  function applyPreset() {
+    var v = el("preset").value;
+    if (v === "custom") return;
+    if (v === "all") {
+      el("dFrom").value = "";
+      el("dTo").value = "";
+      return;
+    }
+    var days = +v;
+    var refStr = DATA.date_max || null;
+    var ref = refStr ? new Date(refStr + "T12:00:00") : new Date();
+    var from = new Date(ref.getTime() - days * 864e5);
+    var iso = function (d) {
+      return d.getFullYear() + "-" +
+        String(d.getMonth() + 1).padStart(2, "0") + "-" +
+        String(d.getDate()).padStart(2, "0");
+    };
+    el("dFrom").value = iso(from);
+    el("dTo").value = refStr || iso(new Date());
+  }
+  function resetFilters() {
+    state.products = null;
+    state.openCluster = undefined;
+    state.quoteLimit = 5;
+    el("preset").value = "all";
+    applyPreset();
+    renderAll();
+  }
+  function toggleProduct(p) {
+    if (!state.products) {
+      state.products = new Set([p]);
+    } else if (state.products.has(p)) {
+      state.products.delete(p);
+      if (state.products.size === 0) state.products = null;
+    } else {
+      state.products.add(p);
+      if (state.products.size === DATA.products.length) state.products = null;
+    }
+    renderAll();
+  }
+  function selectGroup(grp) {
+    if (grp === "alle") {
+      state.products = null;
+    } else {
+      var s = new Set();
+      DATA.products.forEach(function (name, i) {
+        if (Core.productGroup(name) === grp) s.add(i);
+      });
+      state.products = s.size ? s : null;
+    }
+    renderAll();
+  }
+
+  /* ---------- Rendering ---------- */
+  function renderAll() {
+    var f = currentFilter();
+    var stats = Core.computeStats(DATA, f, state.activeQ);
+    lastStats = stats;
+    renderKpis(stats, f);
+    renderChips(Core.productCounts(DATA, f));
+    renderQuestions(stats);
+    renderClusters(stats, f);
+    renderTrend(stats);
+  }
+
+  function renderKpis(stats) {
+    el("kTotal").textContent = fmtNum(stats.total);
+    el("kRange").textContent = stats.total && stats.dmin
+      ? fmtDate(stats.dmin) + " bis " + fmtDate(stats.dmax)
+      : "–";
+    el("kQ").textContent = DATA.questions.length;
+    var withData = stats.perQuestion.filter(function (n) { return n > 0; }).length;
+    el("kQS").textContent = withData + " mit Antworten im Filter";
+    el("kStand").textContent = fmtStand(DATA.generated_at);
+  }
+
+  function renderChips(counts) {
+    var html = DATA.products.map(function (name, i) {
+      var on = !state.products || state.products.has(i);
+      return '<span class="chip' + (on ? " on" : "") + '" data-p="' + i + '">' +
+        escapeHtml(name) + '<span class="cnt">' + fmtNum(counts[i]) + "</span></span>";
+    }).join("");
+    var box = el("chips");
+    box.innerHTML = html;
+    box.querySelectorAll(".chip").forEach(function (c) {
+      pressable(c, function () { toggleProduct(+c.dataset.p); });
+    });
+  }
+
+  function renderQuestions(stats) {
+    var order = DATA.questions.map(function (_, i) { return i; });
+    order.sort(function (a, b) { return stats.perQuestion[b] - stats.perQuestion[a] || a - b; });
+    var html = order.map(function (qi) {
+      var q = DATA.questions[qi];
+      return '<div class="qitem' + (qi === state.activeQ ? " active" : "") + '" data-q="' + qi + '">' +
+        '<div><div class="qt">' + escapeHtml(q.text) + '</div>' +
+        '<div class="typ">' + (q.type === "open" ? "Offene Frage" : "Auswahlfrage") + "</div></div>" +
+        '<div class="qn">' + fmtNum(stats.perQuestion[qi]) + "</div></div>";
+    }).join("");
+    var box = el("qlist");
+    box.innerHTML = html || '<div class="empty">Keine Fragen vorhanden.</div>';
+    box.querySelectorAll(".qitem").forEach(function (item) {
+      pressable(item, function () {
+        var qi = +item.dataset.q;
+        if (qi === state.activeQ) return;
+        state.activeQ = qi;
+        state.openCluster = undefined;
+        state.quoteLimit = 5;
+        renderAll();
+      });
+    });
+  }
+
+  function quotePanelHtml(f, cIdx, label) {
+    var res = Core.topQuotes(DATA, f, state.activeQ, cIdx, state.quoteLimit);
+    var inner;
+    if (!res.top.length) {
+      inner = '<div class="empty">Keine wörtlichen Zitate in diesem Cluster (im aktuellen Filter).</div>';
+    } else {
+      inner = '<div class="phead">Top-Zitate · ' + escapeHtml(label) + " · " +
+        res.top.length + " von " + fmtNum(res.totalQuotable) + " Zitaten</div>" +
+        res.top.map(function (r) {
+          /* v3: pIdxs-Array -> alle Produkte der Antwort, auf 2 gekuerzt + "+N" */
+          var names = (r[1] || []).map(function (pi) { return DATA.products[pi]; }).filter(Boolean);
+          var prod = names.slice(0, 2).join(", ") + (names.length > 2 ? " +" + (names.length - 2) : "");
+          var txt = escapeHtml(r[4]).replace(/\n/g, "<br>");
+          return '<div class="quote">„' + txt + '“' +
+            '<div class="meta">' + escapeHtml(prod) + (r[2] ? " · " + fmtDate(r[2]) : "") + "</div></div>";
+        }).join("");
+      if (res.totalQuotable > state.quoteLimit) {
+        inner += '<button class="morebtn" id="morequotes">Mehr zeigen (+10)</button>';
+      }
+    }
+    return '<div class="qpanel">' + inner + "</div>";
+  }
+
+  function renderClusters(stats, f) {
+    var q = DATA.questions[state.activeQ];
+    var basis = stats.perQuestion[state.activeQ] || 0;
+    el("qtitle").innerHTML = escapeHtml(q ? q.text : "") +
+      ' <span class="sub">(' + fmtNum(basis) + " Antworten im Filter · Balken klicken = Zitate)</span>";
+    el("qnote").textContent = basis
+      ? "Mehrfachnennungen möglich · Prozent = Anteil der Antworten, die das Thema erwähnen"
+      : "";
+
+    var box = el("clusters");
+    if (!basis) {
+      box.innerHTML = '<div class="empty">Keine Antworten im aktuellen Filter. Zeitraum oder Produktauswahl erweitern.</div>';
+      return;
+    }
+    var labels = DATA.clusters[String(q.id)] || [];
+    var entries = [];
+    (stats.clusterCounts || []).forEach(function (n, i) {
+      if (n > 0) entries.push({ c: i, label: labels[i] != null ? labels[i] : "Cluster " + i, n: n });
+    });
+    if (stats.unclustered > 0) entries.push({ c: null, label: "Ohne Zuordnung", n: stats.unclustered });
+    entries.sort(function (a, b) { return b.n - a.n; });
+
+    if (!entries.length) {
+      box.innerHTML = '<div class="empty">Keine Cluster-Daten für diese Frage im aktuellen Filter.</div>';
+      return;
+    }
+    var max = entries[0].n;
+    var html = entries.map(function (e) {
+      var key = e.c === null ? "null" : String(e.c);
+      var open = state.openCluster !== undefined &&
+        String(state.openCluster) === key;
+      var row = '<div class="hbar-row' + (open ? " active" : "") + '" data-c="' + key + '" title="' +
+        escapeHtml(e.label) + ": " + fmtNum(e.n) + ' Antworten">' +
+        '<span class="lbl">' + escapeHtml(e.label) + "</span>" +
+        '<span class="hbar-track"><span class="hbar-fill" style="width:' + (e.n / max * 100) + '%"></span></span>' +
+        '<span class="num"><b>' + fmtNum(e.n) + "</b> · " + pctLabel(e.n, basis) + "</span></div>";
+      if (open) row += quotePanelHtml(f, e.c, e.label);
+      return row;
+    }).join("");
+    box.innerHTML = html;
+
+    box.querySelectorAll(".hbar-row").forEach(function (row) {
+      pressable(row, function () {
+        var key = row.dataset.c;
+        var val = key === "null" ? null : +key;
+        var same = state.openCluster !== undefined && String(state.openCluster) === key;
+        state.openCluster = same ? undefined : val;
+        state.quoteLimit = 5;
+        renderClusters(lastStats, currentFilter());
+      });
+    });
+    var more = el("morequotes");
+    if (more) {
+      more.addEventListener("click", function () {
+        state.quoteLimit += 10;
+        renderClusters(lastStats, currentFilter());
+      });
+    }
+  }
+
+  function renderTrend(stats) {
+    var svg = el("trend");
+    var keys = Object.keys(stats.months).sort();
+    if (!keys.length) {
+      svg.innerHTML = "";
+      el("trendsub").textContent = "(keine Daten im Filter)";
+      return;
+    }
+    var months = Core.monthRange(keys[0], keys[keys.length - 1]);
+    var vals = months.map(function (m) { return stats.months[m] || 0; });
+    el("trendsub").textContent = "(aktive Frage, " + months.length + " Monate)";
+
+    var W = svg.clientWidth || 880, H = 220, padL = 44, padR = 10, padT = 12, padB = 26;
+    var plotW = W - padL - padR, plotH = H - padT - padB;
+    var maxN = Math.max(1, Math.max.apply(null, vals));
+    var n = months.length;
+    var slot = plotW / n;
+    var barW = Math.max(3, slot * 0.62);
+    var y = function (v) { return padT + (1 - v / maxN) * plotH; };
+    var g = "";
+    var steps = Math.min(4, maxN);
+    for (var s = 0; s <= steps; s++) {
+      var v = Math.round(maxN * s / steps);
+      g += '<line x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="var(--grid)" stroke-width="1"/>' +
+        '<text x="' + (padL - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="10" fill="var(--muted)">' + fmtNum(v) + "</text>";
+    }
+    for (var i = 0; i < n; i++) {
+      var x = padL + i * slot + (slot - barW) / 2;
+      g += '<rect x="' + x + '" y="' + y(vals[i]) + '" width="' + barW + '" height="' + Math.max(0, (H - padB) - y(vals[i])) + '" rx="2" fill="var(--blue)"/>';
+    }
+    var maxLabels = Math.max(2, Math.floor(plotW / 52));
+    var lblEvery = Math.ceil(n / maxLabels);
+    for (var i2 = 0; i2 < n; i2 += lblEvery) {
+      g += '<text x="' + (padL + i2 * slot + slot / 2) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="10" fill="var(--muted)">' + fmtMonth(months[i2]) + "</text>";
+    }
+    g += '<line x1="' + padL + '" x2="' + (W - padR) + '" y1="' + (H - padB) + '" y2="' + (H - padB) + '" stroke="var(--baseline)" stroke-width="1"/>';
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.innerHTML = g + '<rect id="trendhit" x="0" y="0" width="' + W + '" height="' + H + '" fill="transparent"/>';
+
+    var tt = el("tt");
+    var hit = svg.querySelector("#trendhit");
+    hit.addEventListener("mousemove", function (ev) {
+      var rect = svg.getBoundingClientRect();
+      var relX = (ev.clientX - rect.left) / rect.width * W;
+      var bi = Math.floor((relX - padL) / slot);
+      bi = Math.max(0, Math.min(n - 1, bi));
+      tt.style.display = "block";
+      tt.textContent = fmtMonthLong(months[bi]) + ": " + fmtNum(vals[bi]) + " Antworten";
+      tt.style.left = (ev.clientX + 14) + "px";
+      tt.style.top = (ev.clientY - 10) + "px";
+    });
+    hit.addEventListener("mouseleave", function () { tt.style.display = "none"; });
+  }
+
+  /* ---------- Events ---------- */
+  el("preset").addEventListener("change", function () { applyPreset(); renderAll(); });
+  el("dFrom").addEventListener("change", function () { el("preset").value = "custom"; renderAll(); });
+  el("dTo").addEventListener("change", function () { el("preset").value = "custom"; renderAll(); });
+  el("resetbtn").addEventListener("click", resetFilters);
+  document.querySelectorAll(".grpbtns a").forEach(function (a) {
+    pressable(a, function () { selectGroup(a.dataset.g); });
+  });
+  window.addEventListener("resize", function () { if (lastStats) renderTrend(lastStats); });
+
+  /* ---------- Init ---------- */
+  status.style.display = "none";
+  el("app").style.display = "block";
+  el("stand").textContent = "Stand: " + fmtStand(DATA.generated_at) +
+    " · " + fmtNum(DATA.responses.length) + " Antworten" +
+    (DATA.date_min ? " · " + fmtDate(DATA.date_min) + " bis " + fmtDate(DATA.date_max) : "");
+  state.activeQ = 0;
+  renderAll();
+})();
+</script>
+</body>
+</html>
